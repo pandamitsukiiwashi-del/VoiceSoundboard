@@ -260,16 +260,30 @@ function showCharacters() {
 
         card.onclick = () => selectCharacter(character);
 
-        if (character.image) {
+if (character.image) {
 
-            const img = document.createElement("img");
+    const img = document.createElement("img");
 
-            img.src = character.image;
+    img.src = character.image;
+    img.alt = character.name;
 
-            img.alt = character.name;
+    let retryCount = 0;
 
-            card.appendChild(img);
+    img.onerror = () => {
+
+        if (retryCount >= 3) {
+            return;
         }
+
+        retryCount++;
+
+        setTimeout(() => {
+            img.src = character.image + "?retry=" + Date.now();
+        }, 500);
+    };
+
+    card.appendChild(img);
+}
 
         const name = document.createElement("div");
 
@@ -326,16 +340,30 @@ function showOutfits(character) {
 
         card.onclick = () => selectOutfit(outfit);
 
-        if (outfit.image) {
+if (outfit.image) {
 
-            const img = document.createElement("img");
+    const img = document.createElement("img");
 
-            img.src = outfit.image;
+    img.src = outfit.image;
+    img.alt = outfit.name;
 
-            img.alt = outfit.name;
+    let retryCount = 0;
 
-            card.appendChild(img);
+    img.onerror = () => {
+
+        if (retryCount >= 3) {
+            return;
         }
+
+        retryCount++;
+
+        setTimeout(() => {
+            img.src = outfit.image + "?retry=" + Date.now();
+        }, 500);
+    };
+
+    card.appendChild(img);
+}
 
         const name = document.createElement("div");
 
@@ -364,15 +392,30 @@ function selectOutfit(outfit) {
 
     const image = document.getElementById("outfitImage");
 
-    if (outfit.image) {
+if (outfit.image) {
 
-        image.src = outfit.image;
-        image.style.display = "block";
+    image.src = outfit.image;
+    image.style.display = "block";
 
-    } else {
+    let retryCount = 0;
 
-        image.style.display = "none";
-    }
+    image.onerror = () => {
+
+        if (retryCount >= 3) {
+            return;
+        }
+
+        retryCount++;
+
+        setTimeout(() => {
+            image.src = outfit.image + "?retry=" + Date.now();
+        }, 500);
+    };
+
+} else {
+
+    image.style.display = "none";
+}
 
     const container = document.getElementById("sounds");
 
