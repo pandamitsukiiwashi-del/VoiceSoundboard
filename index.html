@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Voice Soundboard</title>
+
+<style>
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: "Yu Gothic", "Meiryo", sans-serif;
+    background: #f5f5f7;
+    color: #333;
+}
+
+header {
+    background: #ffffff;
+    border-bottom: 1px solid #ddd;
+    padding: 20px;
+    text-align: center;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 26px;
+}
+
+header p {
+    margin: 6px 0 0;
+    color: #777;
+    font-size: 14px;
+}
+
+main {
+    max-width: 1100px;
+    margin: 0 auto;
+    padding: 25px 15px 50px;
+}
+
+h2 {
+    margin-top: 10px;
+    font-size: 22px;
+}
+
+#characters,
+#outfits,
+#sounds {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 16px;
+}
+
+.card {
+    background: white;
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    cursor: pointer;
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+
+.card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(0,0,0,0.14);
+}
+
+.card img {
+    width: 100%;
+    aspect-ratio: 1 / 1;
+    object-fit: cover;
+    display: block;
+    background: #eee;
+}
+
+.card-name {
+    padding: 13px;
+    text-align: center;
+    font-weight: bold;
+}
+
+.sound-button {
+    border: none;
+    background: white;
+    border-radius: 12px;
+    padding: 18px 12px;
+    font-size: 16px;
+    cursor: pointer;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: 0.15s;
+}
+
+.sound-button:hover {
+    transform: translateY(-2px);
+    background: #f0f0f0;
+}
+
+.sound-button.playing {
+    background: #ddd;
+}
+
+.back-button {
+    border: none;
+    background: #444;
+    color: white;
+    padding: 10px 18px;
+    border-radius: 8px;
+    cursor: pointer;
+    margin-bottom: 20px;
+}
+
+.outfit-image {
+    width: 220px;
+    max-width: 100%;
+    border-radius: 14px;
+    display: block;
+    margin: 0 auto 25px;
+}
+
+.page {
+    display: none;
+}
+
+.page.active {
+    display: block;
+}
+
+.message {
+    text-align: center;
+    padding: 50px 10px;
+    color: #777;
+}
+
+@media (max-width: 600px) {
+    header h1 {
+        font-size: 21px;
+    }
+
+    #characters,
+    #outfits,
+    #sounds {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 10px;
+    }
+
+    .sound-button {
+        padding: 16px 8px;
+        font-size: 14px;
+    }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h1>Voice Soundboard</h1>
+    <p>キャラクターボイス一覧</p>
+</header>
+
+<main>
+
+    <!-- キャラクター一覧 -->
+    <section id="characterPage" class="page active">
+        <h2>キャラクター</h2>
+
+        <div id="characters">
+            <div class="message">読み込み中...</div>
+        </div>
+    </section>
+
+
+    <!-- 衣装一覧 -->
+    <section id="outfitPage" class="page">
+        <button class="back-button" onclick="showCharacters()">
+            ← キャラクター一覧
+        </button>
+
+        <h2 id="outfitTitle"></h2>
+
+        <div id="outfits"></div>
+    </section>
+
+
+    <!-- ボイス一覧 -->
+    <section id="soundPage" class="page">
+        <button class="back-button" onclick="backToOutfits()">
+            ← 戻る
+        </button>
+
+        <h2 id="soundTitle"></h2>
+
+        <img id="outfitImage" class="outfit-image" style="display:none;">
+
+        <div id="sounds"></div>
+    </section>
+
+</main>
+
+<script>
+
+let characters = [];
+let currentCharacter = null;
+let currentOutfit = null;
+let currentAudio = null;
+
+
+/* データ読み込み */
+async function loadData() {
+
+    try {
+
+        const response = await fetch("/api/data");
+
+        if (!response.ok) {
+            throw new Error("データ取得失敗");
+        }
+
+        characters = await response.json();
+
+        showCharacters();
+
+    } catch (error) {
+
+        document.getElementById("characters").innerHTML =
+            '<div class="message">データを読み込めませんでした。</div>';
+
+        console.error(error);
+    }
+}
+
+
+/* キャラクター一覧 */
+function showCharacters() {
+
+    hidePages();
+
+    document.getElementById("characterPage").classList.add("active");
+
+    const container = document.getElementById("characters");
+
+    container.innerHTML = "";
+
+    if (characters.length === 0) {
+
+        container.innerHTML =
+            '<div class="message">キャラクターがありません。</div>';
+
+        return;
+    }
+
+    characters.forEach(character => {
+
+        const card = document.createElement("div");
+
+        card.className = "card";
+
+        card.onclick = () => selectCharacter(character);
+
+        if (character.image) {
+
+            const img = document.createElement("img");
+
+            img.src = character.image;
+
+            img.alt = character.name;
+
+            card.appendChild(img);
+        }
+
+        const name = document.createElement("div");
+
+        name.className = "card-name";
+
+        name.textContent = character.name;
+
+        card.appendChild(name);
+
+        container.appendChild(card);
+    });
+}
+
+
+/* キャラクター選択 */
+function selectCharacter(character) {
+
+    currentCharacter = character;
+
+    /*
+     * 衣装が1つしかない場合は
+     * 衣装選択を飛ばして直接ボイスへ
+     */
+    if (character.outfits.length === 1) {
+
+        selectOutfit(character.outfits[0]);
+
+    } else {
+
+        showOutfits(character);
+    }
+}
+
+
+/* 衣装一覧 */
+function showOutfits(character) {
+
+    hidePages();
+
+    document.getElementById("outfitPage").classList.add("active");
+
+    document.getElementById("outfitTitle").textContent =
+        character.name;
+
+    const container = document.getElementById("outfits");
+
+    container.innerHTML = "";
+
+    character.outfits.forEach(outfit => {
+
+        const card = document.createElement("div");
+
+        card.className = "card";
+
+        card.onclick = () => selectOutfit(outfit);
+
+        if (outfit.image) {
+
+            const img = document.createElement("img");
+
+            img.src = outfit.image;
+
+            img.alt = outfit.name;
+
+            card.appendChild(img);
+        }
+
+        const name = document.createElement("div");
+
+        name.className = "card-name";
+
+        name.textContent = outfit.name;
+
+        card.appendChild(name);
+
+        container.appendChild(card);
+    });
+}
+
+
+/* 衣装選択 */
+function selectOutfit(outfit) {
+
+    currentOutfit = outfit;
+
+    hidePages();
+
+    document.getElementById("soundPage").classList.add("active");
+
+    document.getElementById("soundTitle").textContent =
+        currentCharacter.name + " / " + outfit.name;
+
+    const image = document.getElementById("outfitImage");
+
+    if (outfit.image) {
+
+        image.src = outfit.image;
+        image.style.display = "block";
+
+    } else {
+
+        image.style.display = "none";
+    }
+
+    const container = document.getElementById("sounds");
+
+    container.innerHTML = "";
+
+    if (outfit.sounds.length === 0) {
+
+        container.innerHTML =
+            '<div class="message">音声がありません。</div>';
+
+        return;
+    }
+
+    outfit.sounds.forEach(sound => {
+
+        const button = document.createElement("button");
+
+        button.className = "sound-button";
+
+        button.textContent = "▶ " + sound.name;
+
+        button.onclick = () => playSound(sound, button);
+
+        container.appendChild(button);
+    });
+}
+
+
+/* 音声再生 */
+function playSound(sound, button) {
+
+    if (currentAudio) {
+
+        currentAudio.pause();
+
+        currentAudio.currentTime = 0;
+    }
+
+    document.querySelectorAll(".sound-button").forEach(b => {
+        b.classList.remove("playing");
+    });
+
+    currentAudio = new Audio(sound.file);
+
+    button.classList.add("playing");
+
+    currentAudio.play();
+
+    currentAudio.onended = () => {
+
+        button.classList.remove("playing");
+
+    };
+}
+
+
+/* 衣装一覧へ戻る */
+function backToOutfits() {
+
+    if (currentCharacter.outfits.length === 1) {
+
+        showCharacters();
+
+    } else {
+
+        showOutfits(currentCharacter);
+    }
+}
+
+
+/* キャラクター一覧へ */
+function showCharacters() {
+
+    hidePages();
+
+    document.getElementById("characterPage").classList.add("active");
+
+    const container = document.getElementById("characters");
+
+    container.innerHTML = "";
+
+    characters.forEach(character => {
+
+        const card = document.createElement("div");
+
+        card.className = "card";
+
+        card.onclick = () => selectCharacter(character);
+
+        if (character.image) {
+
+            const img = document.createElement("img");
+
+            img.src = character.image;
+
+            card.appendChild(img);
+        }
+
+        const name = document.createElement("div");
+
+        name.className = "card-name";
+
+        name.textContent = character.name;
+
+        card.appendChild(name);
+
+        container.appendChild(card);
+    });
+}
+
+
+/* ページ切り替え */
+function hidePages() {
+
+    document.querySelectorAll(".page").forEach(page => {
+
+        page.classList.remove("active");
+
+    });
+}
+
+
+/* 起動時 */
+loadData();
+
+</script>
+
+</body>
+</html>
