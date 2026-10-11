@@ -263,7 +263,7 @@ def ordered(items, order):
 # 音声を共通順に並べる
 # =========================================================
 
-def ordered_sounds(items):
+def ordered_sounds(items, custom_order=None):
 
     items_dict = {
         item.name: item
@@ -272,16 +272,18 @@ def ordered_sounds(items):
 
     result = []
 
-    # 共通順に並べる
+    # キャラクター専用の順番を優先
+    if custom_order:
+        for name in custom_order:
+            if name in items_dict:
+                result.append(items_dict.pop(name))
+
+    # 残りの音声は全キャラ共通の順番
     for name in SOUND_ORDER:
-
         if name in items_dict:
+            result.append(items_dict.pop(name))
 
-            result.append(
-                items_dict.pop(name)
-            )
-
-    # 共通リストにない新しい音声は最後へ
+    # どちらにもない音声は最後へ
     result += sorted(
         items_dict.values(),
         key=lambda p: p.name.casefold()
@@ -347,9 +349,25 @@ def make_data():
                 and p.suffix.lower() in AUDIO_EXTS
             ]
 
-            # 全キャラクター共通の順番
+            # キャラクター専用のボイス順を読み込む
+            sound_order_file = character_dir / "sound_order.txt"
+
+            if sound_order_file.is_file():
+                custom_order = [
+                    line.strip()
+                    for line in sound_order_file.read_text(
+                        encoding="utf-8-sig"
+                    ).splitlines()
+                    if line.strip()
+                    and not line.lstrip().startswith("#")
+                ]
+            else:
+                custom_order = []
+
+            # 専用順を優先し、残りは共通順に並べる
             audio_files = ordered_sounds(
-                audio_files
+                audio_files,
+                custom_order
             )
 
             sounds = []
