@@ -206,6 +206,8 @@ let characters = [];
 let currentCharacter = null;
 let currentOutfit = null;
 let currentAudio = null;
+let characterScrollPosition = 0;
+let outfitScrollPosition = 0;
 
 
 /* データ読み込み */
@@ -301,6 +303,12 @@ if (character.image) {
 /* キャラクター選択 */
 function selectCharacter(character) {
 
+    // キャラクター一覧のスクロール位置を保存
+    characterScrollPosition = window.scrollY;
+
+    // 別のキャラの衣装位置を引き継がない
+    outfitScrollPosition = 0;
+
     currentCharacter = character;
 
     /*
@@ -375,11 +383,21 @@ if (outfit.image) {
 
         container.appendChild(card);
     });
+
+    // 衣装一覧の元の位置へ戻す
+    requestAnimationFrame(() => {
+        window.scrollTo(0, outfitScrollPosition);
+    });
 }
 
 
 /* 衣装選択 */
 function selectOutfit(outfit) {
+
+    // 衣装一覧から移動する場合だけ位置を保存
+    if (document.getElementById("outfitPage").classList.contains("active")) {
+        outfitScrollPosition = window.scrollY;
+    }
 
     currentOutfit = outfit;
 
@@ -523,6 +541,11 @@ function showCharacters() {
         card.appendChild(name);
 
         container.appendChild(card);
+    });
+
+    // キャラクター一覧の元の位置へ戻す
+    requestAnimationFrame(() => {
+        window.scrollTo(0, characterScrollPosition);
     });
 }
 
