@@ -6,6 +6,7 @@ import os
 
 ROOT = Path(__file__).resolve().parent
 CHAR_DIR = ROOT / "characters"
+BGM_DIR = ROOT / "bgm"
 PORT = 8000
 
 
@@ -422,7 +423,46 @@ class Handler(SimpleHTTPRequestHandler):
         path = urllib.parse.urlparse(
             self.path
         ).path
+        # BGM一覧を取得
+        if path == "/api/bgm":
 
+            BGM_DIR.mkdir(exist_ok=True)
+
+            bgm_files = sorted(
+                [
+                    p for p in BGM_DIR.iterdir()
+                    if p.is_file()
+                    and p.suffix.lower() in {".ogg", ".mp3", ".wav", ".m4a"}
+                ],
+                key=lambda p: p.name.casefold()
+            )
+
+            bgm_list = [
+                {
+                    "name": p.stem,
+                    "file": relative_path(p)
+                }
+                for p in bgm_files
+            ]
+
+            body = json.dumps(
+                bgm_list,
+                ensure_ascii=False
+            ).encode("utf-8")
+
+            self.send_response(200)
+            self.send_header(
+                "Content-Type",
+                "application/json; charset=utf-8"
+            )
+            self.send_header(
+                "Content-Length",
+                str(len(body))
+            )
+            self.end_headers()
+            self.wfile.write(body)
+
+            return
         if path == "/api/data":
 
             data = make_data()

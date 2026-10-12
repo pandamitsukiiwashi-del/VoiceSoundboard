@@ -151,6 +151,56 @@ h2 {
         font-size: 14px;
     }
 }
+/* BGMプレイヤー */
+#bgmPlayer {
+    max-width: 1100px;
+    margin: 15px auto;
+    padding: 15px 20px;
+    background: #ffffff;
+    border-radius: 12px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+#bgmPlayer strong {
+    font-size: 15px;
+}
+
+#bgmSelect {
+    padding: 8px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    max-width: 100%;
+}
+
+#bgmPlayButton {
+    padding: 9px 16px;
+    border: none;
+    border-radius: 8px;
+    background: #444;
+    color: white;
+    cursor: pointer;
+}
+
+#bgmPlayButton:hover {
+    background: #666;
+}
+
+#bgmVolume {
+    width: 120px;
+    cursor: pointer;
+}
+
+#bgmVolumeValue {
+    font-size: 13px;
+    color: #666;
+    min-width: 35px;
+}
 </style>
 </head>
 
@@ -160,7 +210,34 @@ h2 {
     <h1>Voice Soundboard</h1>
     <p>キャラクターボイス一覧</p>
 </header>
+<!-- BGMプレイヤー -->
+<div id="bgmPlayer">
 
+    <strong>♪ BGMプレイヤー</strong>
+
+    <select id="bgmSelect">
+        <option value="">BGMを選択</option>
+    </select>
+
+    <button id="bgmPlayButton" type="button">
+        ▶ 再生
+    </button>
+
+    <label for="bgmVolume">
+        音量
+    </label>
+
+    <input
+        type="range"
+        id="bgmVolume"
+        min="0"
+        max="100"
+        value="30"
+    >
+
+    <span id="bgmVolumeValue">30%</span>
+
+</div>
 <main>
 
     <!-- キャラクター一覧 -->
@@ -560,7 +637,141 @@ function hidePages() {
     });
 }
 
+/* =========================================
+   BGMプレイヤー
+========================================= */
 
+const bgmAudio = new Audio();
+bgmAudio.loop = true;
+
+const bgmSelect = document.getElementById("bgmSelect");
+const bgmPlayButton = document.getElementById("bgmPlayButton");
+const bgmVolume = document.getElementById("bgmVolume");
+const bgmVolumeValue = document.getElementById("bgmVolumeValue");
+
+let bgmPlaying = false;
+
+// 保存されている音量を読み込む
+const savedBgmVolume = localStorage.getItem("bgmVolume");
+const initialBgmVolume = savedBgmVolume === null
+    ? 30
+    : Number(savedBgmVolume);
+
+bgmAudio.volume = Math.max(0, Math.min(100, initialBgmVolume)) / 100;
+bgmVolume.value = bgmAudio.volume * 100;
+bgmVolumeValue.textContent = Math.round(bgmAudio.volume * 100) + "%";
+
+// BGM一覧を取得
+async function loadBgm() {
+
+    try {
+        const response = await fetch("/api/bgm");
+
+        if (!response.ok) {
+            throw new Error("BGM一覧の取得に失敗");
+        }
+
+        const tracks = await response.json();
+
+        tracks.forEach(track => {
+            const option = document.createElement("option");
+            option.value = track.file;
+            option.textContent = track.name;
+            bgmSelect.appendChild(option);
+        });
+
+        // 前回選んだ曲を復元
+        const savedTrack = localStorage.getItem("bgmTrack");
+
+        if (savedTrack && tracks.some(track => track.file === savedTrack)) {
+            bgmSelect.value = savedTrack;
+        }
+
+    } catch (error) {
+        console.error("BGM読み込みエラー:", error);
+    }
+}
+
+// 曲を変更
+bgmSelect.addEventListener("change", async () => {
+
+    bgmAudio.pause();
+    bgmPlaying = false;
+
+    const selectedTrack = bgmSelect.value;
+    localStorage.setItem("bgmTrack", selectedTrack);
+
+    if (!selectedTrack) {
+        bgmAudio.removeAttribute("src");
+        bgmAudio.load();
+        bgmPlayButton.textContent = "▶ 再生";
+        return;
+    }
+
+    bgmAudio.src = selectedTrack;
+
+    try {
+        await bgmAudio.play();
+        bgmPlaying = true;
+        bgmPlayButton.textContent = "⏸ 一時停止";
+    } catch (error) {
+        console.error("BGM再生エラー:", error);
+        bgmPlayButton.textContent = "▶ 再生";
+    }
+});
+
+// 再生・一時停止
+bgmPlayButton.addEventListener("click", async () => {
+
+    if (bgmPlaying) {
+        bgmAudio.pause();
+        bgmPlaying = false;
+        bgmPlayButton.textContent = "▶ 再生";
+        return;
+    }
+
+    if (!bgmSelect.value) {
+        alert("先にBGMを選択してください。");
+        return;
+    }
+
+    if (bgmAudio.getAttribute("src") !== bgmSelect.value) {
+        bgmAudio.src = bgmSelect.value;
+    }
+
+    try {
+        await bgmAudio.play();
+        bgmPlaying = true;
+        bgmPlayButton.textContent = "⏸ 一時停止";
+    } catch (error) {
+        console.error("BGM再生エラー:", error);
+    }
+});
+
+// 音量変更
+bgmVolume.addEventListener("input", () => {
+
+    const volume = Number(bgmVolume.value);
+
+    bgmAudio.volume = volume / 100;
+    bgmVolumeValue.textContent = volume + "%";
+
+    localStorage.setItem("bgmVolume", volume);
+});
+
+// BGMの状態を同期
+bgmAudio.addEventListener("pause", () => {
+    bgmPlaying = false;
+    bgmPlayButton.textContent = "▶ 再生";
+});
+
+bgmAudio.addEventListener("play", () => {
+    bgmPlaying = true;
+    bgmPlayButton.textContent = "⏸ 一時停止";
+});
+
+// BGM一覧の読み込み開始
+loadBgm();
 /* 起動時 */
 loadData();
 
